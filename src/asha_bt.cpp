@@ -780,14 +780,14 @@ static void scan_gatt_event_handler (uint8_t packet_type, uint16_t channel, uint
         case GATT_EVENT_QUERY_COMPLETE:
         {
             auto att_res = gatt_event_query_complete_get_att_status(packet);
-            if (att_res != ATT_ERROR_SUCCESS) {
-                LOG_ERROR("Subscribing to GATT Service changed indication failed: 0x%02x", static_cast<unsigned int>(att_res));
-                scan_state = ScanState::Disconnecting;
-                gap_disconnect(curr_scan.ha.conn_handle);
-                return;
-            }
+            // if (att_res != ATT_ERROR_SUCCESS) {
+            //     LOG_ERROR("Subscribing to GATT Service changed indication failed: 0x%02x", static_cast<unsigned int>(att_res));
+            //     scan_state = ScanState::Disconnecting;
+            //     gap_disconnect(curr_scan.ha.conn_handle);
+            //     return;
+            // }
 
-            LOG_INFO("Subscribed to GATT Service changed indication");
+            // LOG_INFO("Subscribed to GATT Service changed indication");
             // Start reading the Device name characteristic
             scan_state = ScanState::ReadDeviceName;
             GATT_QUERY_ASSERT(gatt_client_read_value_of_characteristic(
