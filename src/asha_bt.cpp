@@ -1,12 +1,9 @@
 #include "stdio.h"
 #include <set>
-#include <mutex>
 
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
 #include "hardware/watchdog.h"
-#include <set>
-#include <mutex>
 
 #include "pico/stdio_usb.h"
 #include "pico/stdio_uart.h"
@@ -14,8 +11,6 @@
 #include "etl/string.h"
 
 #include <ArduinoJson.h>
-#include <set>
-#include <mutex>
 
 #include "asha_logging.h"
 #include "asha_uuid.hpp"
@@ -28,7 +23,6 @@
 namespace asha {
 
 std::set<bd_addr_t> global_blacklist;
-std::mutex blacklist_mutex;
 
 #define ASHA_ASSERT_PACKET_TYPE(pt) if (packet_type != (pt)) return
 
@@ -566,7 +560,7 @@ static void sm_event_handler (uint8_t packet_type, uint16_t channel, uint8_t *pa
             return;
         }
         // Check if device is blacklisted
-        std::lock_guard<std::mutex> lock(blacklist_mutex);
+
         if (global_blacklist.find(curr_scan.ha.addr) != global_blacklist.end()) {
             LOG_INFO("Device %s is blacklisted, skipping.", bd_addr_to_str(curr_scan.ha.addr));
             scan_state = ScanState::Scan;
@@ -806,7 +800,7 @@ case ScanState::ServiceChangedNotification:
         if (att_res != ATT_ERROR_SUCCESS) {
             LOG_ERROR("Subscribing to GATT Service changed indication failed: 0x%02x", static_cast<unsigned int>(att_res));
             // Add to blacklist safely
-            std::lock_guard<std::mutex> lock(blacklist_mutex);
+
             global_blacklist.insert(curr_scan.ha.addr);
             scan_state = ScanState::Disconnecting;
             gap_disconnect(curr_scan.ha.conn_handle);
