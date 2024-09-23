@@ -17,10 +17,10 @@
 #include "asha_led.hpp"
 
 #include "util.hpp"
-
-namespace asha {
 #include <set>
 #include <mutex>
+namespace asha {
+
 std::set<bd_addr_t> global_blacklist;
 std::mutex blacklist_mutex;
 
