@@ -19,6 +19,9 @@
 #include "util.hpp"
 
 namespace asha {
+#include <set>
+std::set<bd_addr_t> global_blacklist;
+std::mutex blacklist_mutex;
 
 #define ASHA_ASSERT_PACKET_TYPE(pt) if (packet_type != (pt)) return
 
@@ -547,14 +550,21 @@ static void sm_event_handler (uint8_t packet_type, uint16_t channel, uint8_t *pa
             }
             break;
         }
-        case SM_EVENT_IDENTITY_RESOLVING_SUCCEEDED:
-        {
-            LOG_INFO("Identity resolving succeeded");
-            sm_event_identity_resolving_succeeded_get_address(packet, curr_scan.ha.addr);
-            if (ha_mgr.get_by_addr(curr_scan.ha.addr)) {
-                LOG_INFO("Device already connected.");
-                return;
-            }
+    case SM_EVENT_IDENTITY_RESOLVING_SUCCEEDED:
+    {
+        LOG_INFO("Identity resolving succeeded");
+        sm_event_identity_resolving_succeeded_get_address(packet, curr_scan.ha.addr);
+        if (ha_mgr.get_by_addr(curr_scan.ha.addr)) {
+            LOG_INFO("Device already connected.");
+            return;
+        }
+        // Check if device is blacklisted
+        std::lock_guard<std::mutex> lock(blacklist_mutex);
+        if (global_blacklist.find(curr_scan.ha.addr) != global_blacklist.end()) {
+            LOG_INFO("Device %s is blacklisted, skipping.", bd_addr_to_str(curr_scan.ha.addr));
+            scan_state = ScanState::Scan;
+            return;
+        }
             scan_state = ScanState::Connecting;
             auto addr_type = sm_event_identity_resolving_succeeded_get_addr_type(packet);
             LOG_INFO("Connecting to address %s", bd_addr_to_str(curr_scan.ha.addr));
@@ -780,18 +790,21 @@ static void scan_gatt_event_handler (uint8_t packet_type, uint16_t channel, uint
         }
         break;
     }
-    case ScanState::ServiceChangedNotification:
+case ScanState::ServiceChangedNotification:
+{
+    switch (hci_event_packet_get_type(packet)) {
+    case GATT_EVENT_QUERY_COMPLETE:
     {
-        switch (hci_event_packet_get_type(packet)) {
-        case GATT_EVENT_QUERY_COMPLETE:
-        {
-            auto att_res = gatt_event_query_complete_get_att_status(packet);
-            if (att_res != ATT_ERROR_SUCCESS) {
-                LOG_ERROR("Subscribing to GATT Service changed indication failed: 0x%02x", static_cast<unsigned int>(att_res));
-                scan_state = ScanState::Disconnecting;
-                gap_disconnect(curr_scan.ha.conn_handle);
-                return;
-            }
+        auto att_res = gatt_event_query_complete_get_att_status(packet);
+        if (att_res != ATT_ERROR_SUCCESS) {
+            LOG_ERROR("Subscribing to GATT Service changed indication failed: 0x%02x", static_cast<unsigned int>(att_res));
+            // Add to blacklist safely
+            std::lock_guard<std::mutex> lock(blacklist_mutex);
+            global_blacklist.insert(curr_scan.ha.addr);
+            scan_state = ScanState::Disconnecting;
+            gap_disconnect(curr_scan.ha.conn_handle);
+            return;
+        }
 
             LOG_INFO("Subscribed to GATT Service changed indication");
             // Start reading the Device name characteristic
