@@ -22,7 +22,7 @@
 
 namespace asha {
 
-std::set<bd_addr_t> global_blacklist;
+std::set<std::string> global_blacklist;
 
 #define ASHA_ASSERT_PACKET_TYPE(pt) if (packet_type != (pt)) return
 
@@ -561,11 +561,11 @@ static void sm_event_handler (uint8_t packet_type, uint16_t channel, uint8_t *pa
         }
         // Check if device is blacklisted
 
-        if (global_blacklist.find(curr_scan.ha.addr) != global_blacklist.end()) {
-            LOG_INFO("Device %s is blacklisted, skipping.", bd_addr_to_str(curr_scan.ha.addr));
-            scan_state = ScanState::Scan;
-            return;
-        }
+if (global_blacklist.find(bd_addr_to_str(curr_scan.report.address)) != global_blacklist.end()) {
+    LOG_INFO("Device %s is blacklisted, skipping.", bd_addr_to_str(curr_scan.report.address));
+    scan_state = ScanState::Scan;
+    return;
+}
             scan_state = ScanState::Connecting;
             auto addr_type = sm_event_identity_resolving_succeeded_get_addr_type(packet);
             LOG_INFO("Connecting to address %s", bd_addr_to_str(curr_scan.ha.addr));
@@ -801,7 +801,7 @@ case ScanState::ServiceChangedNotification:
             LOG_ERROR("Subscribing to GATT Service changed indication failed: 0x%02x", static_cast<unsigned int>(att_res));
             // Add to blacklist safely
 
-            global_blacklist.insert(curr_scan.ha.addr);
+global_blacklist.insert(bd_addr_to_str(curr_scan.ha.addr));
             scan_state = ScanState::Disconnecting;
             gap_disconnect(curr_scan.ha.conn_handle);
             return;
