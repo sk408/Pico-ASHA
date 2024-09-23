@@ -2,6 +2,8 @@
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
 #include "hardware/watchdog.h"
+#include <set>
+#include <mutex>
 
 #include "pico/stdio_usb.h"
 #include "pico/stdio_uart.h"
@@ -17,8 +19,7 @@
 #include "asha_led.hpp"
 
 #include "util.hpp"
-#include <set>
-#include <mutex>
+
 namespace asha {
 
 std::set<bd_addr_t> global_blacklist;
