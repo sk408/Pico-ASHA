@@ -38,11 +38,11 @@ namespace AshaUUID
     // 16 bit ASHA service UUID, little endian
     inline constexpr uint16_t service16 = 0xFDF0;
 
-    inline constexpr std::array<uint8_t, 16> service = uuid_from_str("0000FDF0-0000-1000-8000-00805F9B34FB");
+    inline constexpr std::array<uint8_t, 16> service = uuid_from_str("0000fefe-0000-1000-8000-00805f9b34fb");
     inline constexpr std::array<uint8_t, 16> readOnlyProps = uuid_from_str("6333651e-c481-4a3e-9169-7c902aad37bb");
     inline constexpr std::array<uint8_t, 16> audioControlPoint = uuid_from_str("f0d4de7e-4a88-476c-9d9f-1937b0996cc0");
     inline constexpr std::array<uint8_t, 16> audioStatus = uuid_from_str("38663f1a-e711-4cac-b641-326b56404837");
-    inline constexpr std::array<uint8_t, 16> volume = uuid_from_str("00e4ca9e-ab14-41e4-8823-f9e70c7e91df");
+    inline constexpr std::array<uint8_t, 16> volume = uuid_from_str("054E99C7-FF34-1C12-59CD-E2C20D2E6743");
     inline constexpr std::array<uint8_t, 16> psm = uuid_from_str("2d410339-82b6-42aa-b34e-e2e01df8cc1a");
 }
 
