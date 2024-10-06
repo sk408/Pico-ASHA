@@ -253,7 +253,8 @@ void HA::subscribe_to_asp_notification()
     auto res = gatt_client_write_client_characteristic_configuration(
         gatt_packet_handler,
         conn_handle,
-        &asha_service.asp,
+        // &asha_service.asp,
+        NULL,
         GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION
     );
 
