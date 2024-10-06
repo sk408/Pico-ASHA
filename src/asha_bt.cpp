@@ -219,6 +219,7 @@ static void handle_bt_audio_pending_worker([[maybe_unused]] async_context_t *con
             ha.subscribe_to_asp_notification();
             break;
         case ASPNotificationSubscribed:
+            LOG_INFO("ASP Notification Subscribed")
             if (ha_mgr.set_complete()) {
                 runtime_settings.set_full_set_paired(true);
                 led_mgr.set_led(LEDManager::State::On);

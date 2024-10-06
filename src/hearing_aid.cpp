@@ -1,6 +1,7 @@
 #include <bitset>
 #include <cassert>
 #include <cstring>
+#include <cstdio>
 
 #include "asha_logging.h"
 #include "hearing_aid.hpp"
@@ -239,6 +240,13 @@ void HA::on_read_char_value(uint8_t* char_val_query_res_packet)
 }
 // void HA::on_read_char_complete([[maybe_unused]] uint8_t status)
 // {}
+void printMemoryContents(void *ptr, size_t size) {
+    unsigned char *bytePtr = static_cast<unsigned char *>(ptr);
+    for (size_t i = 0; i < size; i++) {
+        printf("%02x ", bytePtr[i]);
+    }
+    printf("\n");
+}
 
 void HA::subscribe_to_asp_notification()
 {
@@ -248,6 +256,11 @@ void HA::subscribe_to_asp_notification()
         &asha_service.asp,
         GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION
     );
+    LOG_INFO("GATT Packet Handler: %p", gatt_packet_handler);
+       printMemoryContents(gatt_packet_handler, sizeof(gatt_packet_handler));
+    LOG_INFO("Connection Handle: %d", conn_handle);
+    LOG_INFO("ASHA Service: %p", asha_service);
+   printMemoryContents(&asha_service.asp, sizeof(asha_service.asp));
     if (res != ERROR_CODE_SUCCESS) {
         LOG_ERROR("%s: Error writing ASP notification configuration: 0x%02x", side_str, (unsigned int)res);
         state = State::PSMRead;
