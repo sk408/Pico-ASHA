@@ -256,6 +256,7 @@ void HA::subscribe_to_asp_notification()
         &asha_service.asp,
         GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION
     );
+
     LOG_INFO("GATT Packet Handler: %p", gatt_packet_handler);
     //    printMemoryContents(gatt_packet_handler, sizeof(gatt_packet_handler));
     LOG_INFO("Connection Handle: %d", conn_handle);
@@ -349,10 +350,20 @@ void HA::write_acp_status(uint8_t status)
     return;
 }
 
+void printPacketContents(uint8_t* packet, size_t size) {
+    printf("Query Complete Packet Contents: ");
+    for (size_t i = 0; i < size; ++i) {
+        printf("%02x ", packet[i]);
+    }
+    printf("\n");
+}
+
 void HA::on_gatt_event_query_complete(uint8_t* query_complete_packet)
 {
     using enum State;
     unsigned int att_status = gatt_event_query_complete_get_att_status(query_complete_packet);
+        printPacketContents(query_complete_packet, 512);
+
     if (att_status != ATT_ERROR_SUCCESS) {
         LOG_ERROR("%s: %s failed with error code: 0x%02x", side_str, state_to_str(state), att_status);
     }
