@@ -257,7 +257,7 @@ void HA::subscribe_to_asp_notification()
         GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION
     );
     LOG_INFO("GATT Packet Handler: %p", gatt_packet_handler);
-       printMemoryContents(gatt_packet_handler, sizeof(gatt_packet_handler));
+    //    printMemoryContents(gatt_packet_handler, sizeof(gatt_packet_handler));
     LOG_INFO("Connection Handle: %d", conn_handle);
     LOG_INFO("ASHA Service: %p", asha_service);
    printMemoryContents(&asha_service.asp, sizeof(asha_service.asp));
