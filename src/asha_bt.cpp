@@ -26,7 +26,7 @@ namespace asha {
    Note, connection interval is in units of 1.25ms */
 constexpr uint16_t asha_conn_interval = 20 / 1.25f;
 
-constexpr uint16_t asha_conn_latency  = 10;
+constexpr uint16_t asha_conn_latency  = 20;
 
 /* Data length variables */
 static constexpr uint16_t pdu_len = 167u;
