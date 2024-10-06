@@ -345,12 +345,12 @@ extern "C" void bt_main()
     sm_add_event_handler(&sm_event_cb_reg);
 
     /* Register notification listener */
-    gatt_client_listen_for_characteristic_value_updates(
-        &notification_listener, 
-        &connected_gatt_event_handler,
-        GATT_CLIENT_ANY_CONNECTION,
-        NULL
-    );
+    // gatt_client_listen_for_characteristic_value_updates(
+    //     &notification_listener, 
+    //     &connected_gatt_event_handler,
+    //     GATT_CLIENT_ANY_CONNECTION,
+    //     NULL
+    // );
 
     /* Start BTStack */
     LOG_INFO("HCI power on.");
