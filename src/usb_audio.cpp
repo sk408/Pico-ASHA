@@ -40,63 +40,116 @@ namespace asha
 {
 
 //--------------------------------------------------------------------+
-// MACRO CONSTANT TYPEDEF PROTOTYPES
+// Constants and Type Definitions
 //--------------------------------------------------------------------+
 
-// List of supported sample rates
-#if defined(__RX__)
-  static const uint32_t sample_rates[] = {16000};
-#else
-  static const uint32_t sample_rates[] = {16000};
-#endif
+/**
+ * @brief List of supported sample rates
+ * 
+ * Currently only 16kHz is supported for ASHA protocol
+ */
+static const uint32_t sample_rates[] = {16000};
 
-static uint32_t current_sample_rate  = 16000;
+/**
+ * @brief Current active sample rate
+ */
+static uint32_t current_sample_rate = 16000;
 
+/**
+ * @brief Number of supported sample rates
+ */
 #define N_SAMPLE_RATES  TU_ARRAY_SIZE(sample_rates)
 
-namespace USBVol 
-{
-/* ASHA volume range is -48dB to 0dB, and is set as an int8_t
+/**
+ * @brief USB Volume Control Constants
+ * 
+ * ASHA volume range is -48dB to 0dB, and is set as an int8_t
  * with a range of -128 to 0. This gives steps of 0.375 dB.
-
+ * 
  * USB volume control is an int16_t, from -128dB to +128dB, in
  * steps of 1/256 dB. The ASHA resolution is 96/256dB per step 
  * which gives a range of -12192 to 0 and a resolution of 96.
  */
-
-  constexpr int16_t max =      0; // 0dB
-  constexpr int16_t min = -12192; // -47.625dB
-  constexpr int16_t res =     96; // 96/256 is the step between ASHA volume levels
-  constexpr int16_t mute = 0x8000;
+namespace USBVol 
+{
+    constexpr int16_t max =      0; // 0dB
+    constexpr int16_t min = -12192; // -47.625dB
+    constexpr int16_t res =     96; // 96/256 is the step between ASHA volume levels
+    constexpr int16_t mute = 0x8000;
 }
 
-// Audio controls
-// Current states
-static int8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1] = {};       // +1 for master channel 0
-static int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1] = {};    // +1 for master channel 0
+//--------------------------------------------------------------------+
+// Audio Control State
+//--------------------------------------------------------------------+
 
-// Buffer for microphone data
+/**
+ * @brief Current mute state for each channel
+ * 
+ * Array includes master channel (index 0) plus individual channels
+ */
+static int8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1] = {};
+
+/**
+ * @brief Current volume level for each channel
+ * 
+ * Array includes master channel (index 0) plus individual channels
+ */
+static int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1] = {};
+
+//--------------------------------------------------------------------+
+// Audio Buffers
+//--------------------------------------------------------------------+
+
+/**
+ * @brief Buffer for microphone data (not currently used)
+ */
 [[maybe_unused]] static int16_t mic_buf[CFG_TUD_AUDIO_FUNC_1_EP_IN_SW_BUF_SZ / 2] = {};
-// Buffer for speaker data
+
+/**
+ * @brief Buffer for speaker data received from USB
+ */
 static int16_t spk_buf[CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 2] = {};
-// Speaker data size received in the last frame
+
+/**
+ * @brief Size of speaker data received in the last frame
+ */
 static int spk_data_size;
-// Resolution per format
-const uint8_t resolutions_per_format[CFG_TUD_AUDIO_FUNC_1_N_FORMATS] = {CFG_TUD_AUDIO_FUNC_1_FORMAT_1_RESOLUTION_RX,
-                                                                        CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_RX};
-// Current resolution, update on format change
+
+/**
+ * @brief Resolution per audio format
+ */
+const uint8_t resolutions_per_format[CFG_TUD_AUDIO_FUNC_1_N_FORMATS] = {
+    CFG_TUD_AUDIO_FUNC_1_FORMAT_1_RESOLUTION_RX,
+    CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_RX
+};
+
+/**
+ * @brief Current audio resolution
+ */
 uint8_t current_resolution;
 
-// Last time a packet was recieved, used to detect when a host stops sending audio
+/**
+ * @brief Last time an audio packet was received
+ * 
+ * Used to detect when a host stops sending audio
+ */
 static absolute_time_t last_packet_time = 0;
 
-// A counter for the number of consecutive silence audio packets
-// Note: this number will be approximately milliseconds
+/**
+ * @brief Counter for consecutive silent audio packets
+ * 
+ * Approximately counts milliseconds of silence
+ */
 static uint32_t silence_counter = 0ul;
 
-// The silence_counter threshold by wish to signal streaming stopped
+/**
+ * @brief Silence timeout threshold in milliseconds
+ * 
+ * After this many milliseconds of silence, streaming is considered stopped
+ */
 static constexpr uint32_t silence_timeout = 10'000ul;
 
+// Forward declarations
 void audio_task(void);
 void serial_task(void);
 

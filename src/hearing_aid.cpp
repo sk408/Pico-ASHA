@@ -8,18 +8,29 @@
 namespace asha
 {
 
-/* Data length variables */
-static constexpr uint16_t pdu_len = 167u;
+/**
+ * Constants for Bluetooth data length parameters
+ */
+namespace DataLength {
+    // Maximum PDU length for ASHA protocol
+    static constexpr uint16_t pdu_len = 167u;
+    // Maximum transmission time in microseconds
+    static constexpr uint16_t max_tx_time = 1064;
+}
 
-static constexpr uint16_t max_tx_time = 1064;
-
+/**
+ * Audio Streaming Protocol status codes
+ */
 namespace ASPStatus
 {
-    constexpr int8_t unkown_command = -1;
+    constexpr int8_t unknown_command = -1;  // Fixed typo from "unkown" to "unknown"
     constexpr int8_t illegal_params = -2;
     constexpr int8_t ok = 0;
 }
 
+/**
+ * Audio Control Protocol operation codes
+ */
 namespace ACPOpCode
 {
     constexpr uint8_t start  = 1;
@@ -27,6 +38,9 @@ namespace ACPOpCode
     constexpr uint8_t status = 3;
 }
 
+/**
+ * Audio Control Protocol status codes
+ */
 namespace ACPStatus
 {
     constexpr uint8_t other_disconnected = 0;
@@ -34,16 +48,28 @@ namespace ACPStatus
     constexpr uint8_t conn_param_updated = 2;
 }
 
+// Forward declarations of static functions
 static bool gatt_service_valid(gatt_client_service_t* service);
-
 static void delete_paired_device(const bd_addr_t address);
 
+/**
+ * Check if a GATT service is valid
+ * 
+ * @param service Pointer to the service to check
+ * @return true if the service is valid, false otherwise
+ */
 static bool gatt_service_valid(gatt_client_service_t* service)
 {
     return service->end_group_handle > 0U;
 }
 
-/* Get value from (sub) array of bytes */
+/**
+ * Get value from array of bytes with proper type conversion
+ * 
+ * @tparam T Type to convert to
+ * @param start Pointer to the start of the byte array
+ * @return Value of type T
+ */
 template<typename T>
 static T get_val(const uint8_t *start)
 {
@@ -52,9 +78,13 @@ static T get_val(const uint8_t *start)
     return val;
 }
 
-ROP::ROP()
-{}
+ROP::ROP() = default;
 
+/**
+ * Read and parse Read Only Properties from byte array
+ * 
+ * @param data Pointer to the data to parse
+ */
 void ROP::read(const uint8_t* data)
 {
     std::bitset<8>  device_cap{data[1]};
@@ -73,6 +103,9 @@ void ROP::read(const uint8_t* data)
     codec_24khz = codecs[2];
 }
 
+/**
+ * Print ROP values for debugging
+ */
 void ROP::print_values()
 {
     LOG_INFO("ROP -"
@@ -92,6 +125,10 @@ void ROP::print_values()
 
 /* Public methods */
 
+/**
+ * Constructor for HearingAid
+ * Initializes the object and registers it in the static array
+ */
 HearingAid::HearingAid()
 {
     auth_req = SM_AUTHREQ_BONDING | SM_AUTHREQ_SECURE_CONNECTION;
@@ -771,7 +808,7 @@ void HearingAid::handle_gatt_notification(PACKET_HANDLER_PARAMS)
                         ha->audio_state = AudioState::Ready;
                     }
                     break;
-                case ASPStatus::unkown_command:
+                case ASPStatus::unknown_command:
                     LOG_ERROR("%s: ASP: Unknown command", ha->get_side_str());
                     break;
                 case ASPStatus::illegal_params:

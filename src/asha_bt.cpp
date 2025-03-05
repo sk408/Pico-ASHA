@@ -14,14 +14,20 @@
 
 namespace asha
 {
-/* Connection parameters for ASHA
-   Note, connection interval is in units of 1.25ms */
-constexpr uint16_t asha_conn_interval = 20 / 1.25f;
+/**
+ * @brief Connection parameters for ASHA protocol
+ */
+namespace ConnectionParams {
+    // Connection interval in units of 1.25ms
+    constexpr uint16_t asha_conn_interval = 20 / 1.25f;
+    // Connection slave latency
+    constexpr uint16_t asha_conn_latency  = 10;
+}
 
-constexpr uint16_t asha_conn_latency  = 10;
-
+// LED manager for visual status indication
 LEDManager led_mgr = {};
 
+// LED pattern for when no devices are connected
 LEDManager::Pattern none_connected = {
     .len = 2,
     .interval_ms = 250,
@@ -29,6 +35,7 @@ LEDManager::Pattern none_connected = {
     .pattern = 0b10
 };
 
+// LED pattern for when one device is connected
 LEDManager::Pattern one_connected = {
     .len = 2,
     .interval_ms = 100,
@@ -36,30 +43,36 @@ LEDManager::Pattern one_connected = {
     .pattern = 0b10
 };
 
+// Bluetooth stack callback registrations
 static btstack_packet_callback_registration_t hci_event_cb_reg;
 static btstack_packet_callback_registration_t sm_event_cb_reg;
 
+// GATT notification listener
 static gatt_client_notification_t notification_listener = {};
 
-
+// JSON response buffer size and string
 static constexpr size_t json_resp_str_size = 4096;
-
 static etl::string<json_resp_str_size> response_json = {};
 
+// Forward declarations
 static void hci_event_handler(PACKET_HANDLER_PARAMS);
 
+// Timer for processing hearing aid state
 constexpr btstack_time_t ha_process_interval_ms = 2;
 static btstack_timer_source_t process_timer = {};
 static void process_timer_handler(btstack_timer_source_t * timer);
 
+// Timer for audio processing
 constexpr btstack_time_t ha_audio_interval_ms = 1;
 static btstack_timer_source_t audio_timer = {};
 static void audio_timer_handler(btstack_timer_source_t * timer);
 
+// Worker functions
 static void handle_stdin_line_worker(async_context_t *context, async_when_pending_worker_t *worker);
-static void delete_paired_devices();
-static void add_bonded_to_fal();
 
+/**
+ * @brief Delete all paired devices from the database
+ */
 static void delete_paired_devices()
 {
     LOG_INFO("Removing paired devices");
@@ -67,6 +80,7 @@ static void delete_paired_devices()
     bd_addr_t addr; 
     sm_key_t irk;
     int max_count = le_device_db_max_count();
+    
     for (int i = 0; i < max_count; ++i) {
         le_device_db_info(i, &addr_type, addr, irk);
         if (addr_type != BD_ADDR_TYPE_UNKNOWN) {
@@ -76,14 +90,23 @@ static void delete_paired_devices()
     }
 }
 
+/**
+ * @brief Add bonded devices to the filter accept list
+ * 
+ * Loads the resolving list from the device database and adds
+ * all known devices to the whitelist (filter accept list).
+ */
 static void add_bonded_to_fal()
 {
+    // Load resolving list for private addresses
     gap_load_resolving_list_from_le_device_db();
 
     sm_key_t irk;
     bd_addr_t addr = {};
     int type = BD_ADDR_TYPE_UNKNOWN;
     int max_count = le_device_db_max_count();
+    
+    // Add each known device to the whitelist
     for (int i = 0; i < max_count; ++i) {
         le_device_db_info(i, &type, addr, irk);
         if (type != BD_ADDR_TYPE_UNKNOWN) {
@@ -92,8 +115,15 @@ static void add_bonded_to_fal()
     }
 }
 
+/**
+ * @brief Main Bluetooth function running on core 1
+ * 
+ * Initializes the Bluetooth stack, sets up callbacks, and
+ * starts the main event loop.
+ */
 extern "C" void bt_main()
 {
+    // Initialize the CYW43 WiFi/BT chip
     if (cyw43_arch_init()) {
         return;
     }
@@ -292,7 +322,7 @@ static void hci_event_handler(PACKET_HANDLER_PARAMS)
                 add_bonded_to_fal();
                 // Set connection parameters including connection interval
                 // by default. Values taken from Android
-                gap_set_connection_parameters(0x0030, 0x0030, asha_conn_interval, asha_conn_interval, asha_conn_latency, 100, 12, 12);
+                gap_set_connection_parameters(0x0030, 0x0030, ConnectionParams::asha_conn_interval, ConnectionParams::asha_conn_interval, ConnectionParams::asha_conn_latency, 100, 12, 12);
                 gap_local_bd_addr(local_addr);
                 LOG_INFO("BTstack up and running on %s", bd_addr_to_str(local_addr));
                 if (!runtime_settings.full_set_paired) {
