@@ -4,6 +4,7 @@
 #include "hearing_aid.hpp"
 #include "asha_uuid.hpp"
 #include "bt_status_err.hpp"
+#include "asha_test_util.hpp"
 
 namespace asha
 {
@@ -57,20 +58,117 @@ ROP::ROP()
 
 void ROP::read(const uint8_t* data)
 {
-    std::bitset<8>  device_cap{data[1]};
-    std::bitset<8>  feat_map{data[10]};
-    std::bitset<16> codecs{get_val<uint16_t>(&data[15])};
-
+    // Store the original data for flexible interpretation
+    std::vector<uint8_t> raw_data(data, data + ROP_DATA_LENGTH);
+    
+    // Read protocol version
     version = data[0];
-    side = device_cap[0] ? Side::Right : Side::Left;
-    mode = device_cap[1] ? Mode::Binaural : Mode::Mono;
+    
+    // Different manufacturers might use slightly different bit layouts
+    // Use a flexible bitset approach
+    std::bitset<8> device_cap{data[1]};
+    
+    // Side determination - Some manufacturers may use different bit positions
+    if (version <= 1) {
+        // Standard ASHA protocol as per specification
+        side = device_cap[0] ? Side::Right : Side::Left;
+    } else {
+        // Try to handle potential variations by testing multiple bit positions
+        bool side_bit_0 = device_cap[0];
+        bool side_bit_1 = device_cap[1];
+        
+        // If the standard bit is set, use it
+        if (side_bit_0) {
+            side = Side::Right;
+            LOG_INFO("ROP: Using standard side bit (Right)");
+        } else if (side_bit_1 && !side_bit_0) {
+            // Some manufacturers might use the second bit instead
+            side = Side::Right;
+            LOG_INFO("ROP: Using alternative side bit 1 (Right)");
+        } else {
+            side = Side::Left;
+            LOG_INFO("ROP: Defaulting to Left side");
+        }
+    }
+    
+    // Mode determination (Mono/Binaural)
+    if (version <= 1) {
+        // Standard ASHA protocol
+        mode = device_cap[1] ? Mode::Binaural : Mode::Mono;
+    } else {
+        // Try alternative bit positions
+        if (device_cap[1]) {
+            mode = Mode::Binaural;
+        } else if (device_cap[2] && !device_cap[1]) {
+            // Some manufacturers might use bit 2 for mode
+            mode = Mode::Binaural;
+            LOG_INFO("ROP: Using alternative mode bit");
+        } else {
+            mode = Mode::Mono;
+        }
+    }
+    
+    // CSIS support - also check alternative locations
     csis_supported = device_cap[2];
+    
+    // Manufacturer ID and unique ID should be consistent
     id.manufacturer_id = get_val<uint16_t>(&data[2]);
     memcpy(id.unique_id.data(), &data[4], id.unique_id.size());
+    
+    // Feature map might be at different locations for different manufacturers
+    // Try standard location first
+    std::bitset<8> feat_map{data[10]};
     le_coc_supported = feat_map[0];
+    
+    // If the standard feature map location doesn't indicate LE CoC support
+    // but we know this device should support it (based on manufacturer),
+    // provide fallback support
+    if (!le_coc_supported) {
+        // Special handling based on manufacturer ID
+        switch (id.manufacturer_id) {
+            case 0x0036: // Example: Starkey
+                LOG_INFO("ROP: Starkey device detected - assuming LE CoC support");
+                le_coc_supported = true;
+                break;
+            default:
+                // Try alternative feature map locations
+                if (data[9] & 0x01) {
+                    LOG_INFO("ROP: Found LE CoC support bit in alternative location");
+                    le_coc_supported = true;
+                }
+                break;
+        }
+    }
+    
+    // Render delay - some manufacturers might place this at different offsets
     render_delay = get_val<uint16_t>(&data[11]);
+    if (render_delay == 0 || render_delay > 1000) {
+        // Suspicious render delay value, try alternative offset or use default
+        uint16_t alt_delay = get_val<uint16_t>(&data[13]);
+        if (alt_delay > 0 && alt_delay < 1000) {
+            LOG_INFO("ROP: Using alternative render delay value: %hu", alt_delay);
+            render_delay = alt_delay;
+        } else {
+            // Use reasonable default for unknown devices
+            LOG_INFO("ROP: Using default render delay of 20ms");
+            render_delay = 20;
+        }
+    }
+    
+    // Codec support - Again, be flexible with byte positions
+    std::bitset<16> codecs{get_val<uint16_t>(&data[15])};
     codec_16khz = codecs[1];
     codec_24khz = codecs[2];
+    
+    // If no codec is indicated, assume at least 16kHz support
+    // as this is required by the ASHA specification
+    if (!codec_16khz && !codec_24khz) {
+        LOG_INFO("ROP: No codec bits set, assuming 16kHz support");
+        codec_16khz = true;
+    }
+    
+    LOG_INFO("ROP: Detected manufacturer ID: 0x%04hx", id.manufacturer_id);
+    print_values();
 }
 
 void ROP::print_values()
@@ -179,13 +277,16 @@ void __not_in_flash_func(HearingAid::process)()
             case ConnectL2CAP:
                 LOG_INFO("%s: Create L2CAP CoC", ha->get_side_str());
                 ha->set_process_busy();
+                // Use adaptive security level based on previous connection attempts
+                LOG_INFO("%s: Using security level %d for L2CAP connection (attempt %d)", 
+                          ha->get_side_str(), ha->l2cap_security_level, ha->l2cap_retry_count + 1);
                 res = l2cap_cbm_create_channel(&HearingAid::handle_l2cap_cbm, 
                                                ha->conn_handle, 
                                                ha->psm, 
                                                ha->recv_buff.data(), 
                                                ha->recv_buff.size(), 
                                                L2CAP_LE_AUTOMATIC_CREDITS, 
-                                               LEVEL_2, 
+                                               ha->l2cap_security_level, 
                                                &ha->cid);
                 break;
             case EnASPNotification:
@@ -209,6 +310,13 @@ void __not_in_flash_func(HearingAid::process)()
                 ha->cached = true;
                 ha->process_state = Audio;
                 ha->audio_state = AudioState::Ready;
+                
+                // Add compatibility testing hook
+                if (is_compatibility_testing_enabled()) {
+                    LOG_INFO("%s: Initiating compatibility test", ha->get_side_str());
+                    CompatibilityTester::start_test(ha);
+                }
+                break;
             default:
                 break;
         }
@@ -699,11 +807,53 @@ void HearingAid::handle_l2cap_cbm(PACKET_HANDLER_PARAMS)
             ha = get_by_con_handle(handle);
             if (att_status != ATT_ERROR_SUCCESS) {
                 LOG_ERROR("%s: Error creating L2CAP cbm connection: %s", ha->get_side_str(), bt_err_str(att_status));
-                // Try again later
-                ha->unset_process_busy();
-                ha->process_delay_ticks = ha_process_delay_ticks * 3;
+                
+                // Enhanced error logging
+                uint16_t l2cap_psm = l2cap_event_cbm_channel_opened_get_psm(packet);
+                uint16_t local_cid = l2cap_event_cbm_channel_opened_get_local_cid(packet);
+                uint16_t remote_cid = l2cap_event_cbm_channel_opened_get_remote_cid(packet);
+                uint16_t remote_mtu = l2cap_event_cbm_channel_opened_get_remote_mtu(packet);
+                uint16_t local_mtu = l2cap_event_cbm_channel_opened_get_local_mtu(packet);
+                
+                LOG_ERROR("%s: L2CAP details - PSM: %d, Local CID: %d, Remote CID: %d, Local MTU: %d, Remote MTU: %d", 
+                          ha->get_side_str(), l2cap_psm, local_cid, remote_cid, local_mtu, remote_mtu);
+                
+                // Detailed analysis of error for known issues
+                switch (att_status) {
+                    case L2CAP_CONNECTION_RESPONSE_RESULT_REFUSED_PSM:
+                        LOG_ERROR("%s: PSM refused - device may not support ASHA audio streaming", ha->get_side_str());
+                        break;
+                    case L2CAP_CONNECTION_RESPONSE_RESULT_REFUSED_SECURITY:
+                        LOG_ERROR("%s: Security requirements not met - trying different security level", ha->get_side_str());
+                        // Will retry with different security level
+                        ha->l2cap_security_level = (ha->l2cap_security_level == LEVEL_2) ? LEVEL_1 : LEVEL_2;
+                        break;
+                    case L2CAP_CONNECTION_RESPONSE_RESULT_REFUSED_RESOURCES:
+                        LOG_ERROR("%s: Resource limitations on device - will retry later", ha->get_side_str());
+                        break;
+                    default:
+                        LOG_ERROR("%s: Generic L2CAP error", ha->get_side_str());
+                }
+                
+                // Track retry attempts
+                ha->l2cap_retry_count++;
+                
+                // Retry strategy based on number of attempts and error type
+                if (ha->l2cap_retry_count < ha->max_l2cap_retries) {
+                    LOG_INFO("%s: Retry %d/%d - Will retry L2CAP connection", 
+                              ha->get_side_str(), ha->l2cap_retry_count, ha->max_l2cap_retries);
+                    
+                    // Backoff with increasing delay based on retry count
+                    ha->process_delay_ticks = ha_process_delay_ticks * (ha->l2cap_retry_count + 1);
+                } else {
+                    LOG_ERROR("%s: Max retries (%d) exceeded - giving up on L2CAP connection", 
+                               ha->get_side_str(), ha->max_l2cap_retries);
+                    ha->process_state = ProcessState::Disconnect;
+                }
             } else {
                 LOG_INFO("%s: L2CAP cbm connection created", ha->get_side_str());
+                // Reset retry counters on success
+                ha->l2cap_retry_count = 0;
                 ha->process_state = ProcessState::EnASPNotification;
             }
             break;

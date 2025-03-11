@@ -7,22 +7,22 @@ namespace asha
 
 enum LogLevel str_to_log_level(const char* log_level)
 {
-    if (str_eq(log_level, "ERROR")) {
-        return LogLevel::Error;
-    } else if (str_eq(log_level, "INFO")) {
-        return LogLevel::Info;
-    } else if (str_eq(log_level, "SCAN")) {
-        return LogLevel::Scan;
-    } else if (str_eq(log_level, "AUDIO")) {
-        return LogLevel::Audio;
-    } else {
-        return LogLevel::None;
-    }
+    if (strcmp(log_level, "ERROR") == 0)
+        return Error;
+    else if (strcmp(log_level, "INFO") == 0)
+        return Info;
+    else if (strcmp(log_level, "SCAN") == 0)
+        return Scan;
+    else if (strcmp(log_level, "AUDIO") == 0)
+        return Audio;
+    else
+        return None;
 }
 
 void RuntimeSettings::init()
 {
     btstack_tlv_get_instance(&tlv_impl, &tlv_ctx);
+    log_level = Info;
 }
 
 /* Get settings from flash. Settings not found in flash
@@ -41,7 +41,7 @@ void RuntimeSettings::get_settings()
         full_set_paired = false;
     }
     if (!get_tlv_tag(Tag::LogLevel, log_level)) {
-        log_level = LogLevel::Info;
+        log_level = Info;
     }
 }
 

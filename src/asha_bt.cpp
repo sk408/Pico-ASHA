@@ -11,6 +11,7 @@
 #include "asha_uuid.hpp"
 #include "hearing_aid.hpp"
 #include "util.hpp"
+#include "asha_test_util.hpp"
 
 namespace asha
 {
@@ -238,7 +239,7 @@ static void handle_stdin_line_worker([[maybe_unused]] async_context_t *context,
     } else if (cmd_is(SerCmd::LogLevel)) {
         const char* log_level = cmd_doc["level"];
         enum LogLevel ll = str_to_log_level(log_level);
-        if (ll != LogLevel::None) {
+        if (ll != None) {
             runtime_settings.log_level = ll;
             resp_doc["success"] = true;
         } else {
@@ -252,6 +253,12 @@ static void handle_stdin_line_worker([[maybe_unused]] async_context_t *context,
             watchdog_enable(250, true);
         }
         resp_doc["success"] = true;
+    }
+    else if (cmd_is("compat_test")) {
+        bool enable = cmd_doc["enabled"];
+        enable_compatibility_testing(enable);
+        resp_doc["success"] = true;
+        resp_doc["compat_testing_enabled"] = is_compatibility_testing_enabled();
     }
     else {
         resp_doc["cmd"] = "unknown";

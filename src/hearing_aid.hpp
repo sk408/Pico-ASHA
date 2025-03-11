@@ -17,6 +17,8 @@ enum class Side {Left = 0, Right = 1, Unset = 2};
 enum class Mode {Mono = 0, Binaural = 1, Unset = 2};
 
 struct ROP {
+    static constexpr size_t ROP_DATA_LENGTH = 32; // Expected size of ROP data
+    
     uint8_t version;
     Side side = Side::Unset;
     Mode mode = Mode::Unset;
@@ -161,6 +163,11 @@ private:
 
     uint16_t credits = 0;
     int8_t curr_vol = -128;
+
+    // L2CAP connection retry mechanism
+    uint8_t l2cap_retry_count = 0;
+    static constexpr uint8_t max_l2cap_retries = 5;
+    uint8_t l2cap_security_level = LEVEL_2;  // Default security level
 
     // Array to store current AudioControlPoint command packet
     std::array<uint8_t, 5> acp_cmd_packet = {};

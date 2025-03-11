@@ -14,9 +14,14 @@ constexpr uint32_t str_to_tag(const char tag[5])
 
 enum LogLevel : uint32_t {
     Error = 0,
-    Info = 1,
-    Scan = 2,
-    Audio = 3,
+    Warning = 1,
+    Info = 2,
+    Debug = 3,
+    Verbose = 4,
+    Scan = 5,
+    Audio = 6,
+    Compat = 7,
+    Mfg = 8,
     None = 255,
 };
 
@@ -27,12 +32,22 @@ constexpr const char* log_level_to_str(enum LogLevel log_level)
     {
     case Error:
         return "ERROR";
+    case Warning:
+        return "WARNING";
     case Info:
         return "INFO";
+    case Debug:
+        return "DEBUG";
+    case Verbose:
+        return "VERBOSE";
     case Scan:
         return "SCAN";
     case Audio:
         return "AUDIO";
+    case Compat:
+        return "COMPAT";
+    case Mfg:
+        return "MFG";
     case None:
     default:
         return "NONE";
@@ -52,7 +67,7 @@ struct RuntimeSettings
     bool serial_uart_enabled = false;
     bool hci_dump_enabled = false;
     bool full_set_paired = false;
-    enum LogLevel log_level = LogLevel::Info;
+    enum LogLevel log_level = Info;
 
 
     void init();
