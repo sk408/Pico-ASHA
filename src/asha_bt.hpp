@@ -1,39 +1,16 @@
 #pragma once
 
-#include <cstdint>
-#include "etl/vector.h"
-#include "btstack.h"
+#include "asha_common.hpp"
 
-#include "hearing_aid.hpp"
-
-namespace asha {
-
-enum class ScanState {
-    Stop,
-    Scan,
-    IdentityResolving,
-    Connecting,
-    Pairing,
-    Disconnecting,
-    DataLen,
-    ServiceDiscovery,
-    CharDiscovery,
-    ServiceChangedNotification,
-    ReadDeviceName,
-    ReadROP,
-    ReadPSM,
-    Finalizing,
-    Complete,
-};
-
-constexpr uint16_t buff_size_sdu = 161;
+namespace asha 
+{
 
 /* Struct to hold data from a GAP advertisment report */
 struct AdvertisingReport {
     bd_addr_t address;
     uint8_t   type;
     uint8_t   event_type;
-    uint8_t   address_type;
+    bd_addr_type_t  address_type;
     uint8_t   rssi;
 
     bool is_hearing_aid = false;
@@ -48,15 +25,6 @@ private:
        types, as well as the Apple MFI service, because not all hearing 
        aids advertise ASHA (such as Oticon More) */
     void check_if_ha(uint8_t length, const uint8_t * data);
-};
-
-struct ScanResult {
-    bool service_found = false;
-    HA ha = HA();
-    AdvertisingReport report = AdvertisingReport();
-    etl::vector<gatt_client_service_t*, 8> services = {};
-    gatt_client_service_t** services_it = services.end();
-    void reset();
 };
 
 } // namespace asha

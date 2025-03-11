@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "pico/async_context.h"
+#include <pico/async_context.h>
 
 #include "g722/g722_enc_dec.h"
 #include "PseudoAtomic/RP2040Atomic.hpp"
@@ -54,8 +54,8 @@ public:
         std::array<uint8_t, sdu_size_bytes_aligned> r = {};
     };
     struct Volume {
-        int8_t l;
-        int8_t r;
+        int8_t l = -128;
+        int8_t r = -128;
     };
 
     patomic_bool encode_audio;

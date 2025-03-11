@@ -1,22 +1,37 @@
 #pragma once
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "etl/circular_buffer.h"
-#include "etl/string.h"
+#include <etl/circular_buffer.h>
+#include <etl/string.h>
 
-#include "pico/time.h"
-#include "pico/async_context.h"
+#include <pico/time.h>
+#include <pico/async_context.h>
 
-#include "hci_dump_embedded_stdout.h"
-#include "btstack_debug.h"
+#include <hci_dump_embedded_stdout.h>
+#include <btstack_debug.h>
 #include "runtime_settings.hpp"
 
 namespace asha
 {
 
-constexpr size_t log_line_len = 128;
-constexpr size_t log_lines = 256;
+constexpr size_t log_line_len = 160;
+constexpr size_t log_lines = 128;
+
+// Enhanced logging levels with manufacturer-specific debug channels
+enum class LogLevel {
+    None     = 0,
+    Error    = 10,
+    Warning  = 20,
+    Info     = 30,
+    Debug    = 40,
+    Verbose  = 50,
+    Scan     = 60,
+    Compat   = 70,   // New level for compatibility issue logging
+    Mfg      = 80,   // New level for manufacturer-specific debugging
+};
+
+extern enum LogLevel log_level;
 
 extern async_context_t *logging_ctx;
 extern async_when_pending_worker_t logging_pending_worker;
@@ -24,6 +39,15 @@ extern async_when_pending_worker_t logging_pending_worker;
 void handle_logging_pending_worker(async_context_t *context, async_when_pending_worker_t *worker);
 
 extern etl::circular_buffer<etl::string<log_line_len>, log_lines> log_buffer;
+
+// New function to check if a given manufacturer ID has known issues
+bool has_known_issues(uint16_t manufacturer_id);
+
+// New function to get manufacturer name from ID
+const char* get_manufacturer_name(uint16_t manufacturer_id);
+
+// Log a compatibility issue with a specific manufacturer
+void log_compatibility_issue(uint16_t manufacturer_id, const char* component, const char* format, ...);
 
 template <typename ... Arg>
 static void asha_log(enum LogLevel level, const char* fmt, Arg...args)
@@ -34,20 +58,31 @@ static void asha_log(enum LogLevel level, const char* fmt, Arg...args)
     } else {
         etl::string<log_line_len> line = {};
         int len = snprintf(line.data(), line.capacity(), fmt, log_level_to_str(level), to_ms_since_boot(get_absolute_time()), args...);
-        line.uninitialized_resize(len <= log_line_len ? len : log_line_len);
-        log_buffer.push(line);
-        if (logging_ctx) {
-            async_context_set_work_pending(logging_ctx, &logging_pending_worker);
+        if (len >= 0) {
+            line.uninitialized_resize((size_t)len <= log_line_len ? (size_t)len : log_line_len);
+            log_buffer.push(line);
+            if (logging_ctx) {
+                async_context_set_work_pending(logging_ctx, &logging_pending_worker);
+            }
+            //printf(fmt, log_level_to_str(level), to_ms_since_boot(get_absolute_time()), args...);
         }
-        //printf(fmt, log_level_to_str(level), to_ms_since_boot(get_absolute_time()), args...);
     }
 }
 
-#define ASHA_LOG(level, fmt, ...) asha_log((level), "[%-5s : %u] " fmt "\n", ##__VA_ARGS__)
+// Updated logging macros
+#define LOG_ERROR(format, ...)   asha_log(asha::LogLevel::Error,   "ERROR",   format, ##__VA_ARGS__)
+#define LOG_WARN(format, ...)    asha_log(asha::LogLevel::Warning, "WARNING", format, ##__VA_ARGS__)
+#define LOG_INFO(format, ...)    asha_log(asha::LogLevel::Info,    "INFO",    format, ##__VA_ARGS__)
+#define LOG_DEBUG(format, ...)   asha_log(asha::LogLevel::Debug,   "DEBUG",   format, ##__VA_ARGS__)
+#define LOG_VERBOSE(format, ...) asha_log(asha::LogLevel::Verbose, "VERBOSE", format, ##__VA_ARGS__)
+#define LOG_SCAN(format, ...)    asha_log(asha::LogLevel::Scan,    "SCAN",    format, ##__VA_ARGS__)
+#define LOG_COMPAT(format, ...)  asha_log(asha::LogLevel::Compat,  "COMPAT",  format, ##__VA_ARGS__)
+#define LOG_MFG(format, ...)     asha_log(asha::LogLevel::Mfg,     "MFG",     format, ##__VA_ARGS__)
 
-#define LOG_ERROR(fmt, ...) if (runtime_settings.log_level >= LogLevel::Error) { ASHA_LOG(LogLevel::Error, fmt, ##__VA_ARGS__); }
-#define LOG_INFO(fmt, ...) if (runtime_settings.log_level >= LogLevel::Info) { ASHA_LOG(LogLevel::Info, fmt, ##__VA_ARGS__); }
-#define LOG_SCAN(fmt, ...) if (runtime_settings.log_level >= LogLevel::Scan) { ASHA_LOG(LogLevel::Scan, fmt, ##__VA_ARGS__); }
-#define LOG_AUDIO(fmt, ...) if (runtime_settings.log_level >= LogLevel::Audio) { ASHA_LOG(LogLevel::Audio, fmt, ##__VA_ARGS__); }
+void print_log_msg(LogLevel lvl, const char* prefix, const char* format, ...);
+
+const char* log_level_to_str(enum LogLevel lvl);
+
+enum LogLevel str_to_log_level(const char* str);
 
 } // namespace asha

@@ -1,20 +1,21 @@
 #include <stdio.h>
-#include "pico/stdio.h"
-#include "pico/multicore.h"
-#include "pico/flash.h"
+#include <pico/stdio.h>
+#include <pico/multicore.h>
+#include <pico/flash.h>
 // TinyUSB
-#include "bsp/board.h"
-#include "tusb.h"
+#include <bsp/board.h>
+#include <tusb.h>
 
 #include "asha_unique_id.hpp"
 #include "asha_audio.hpp"
 #include "asha_usb_serial.hpp"
 #include "runtime_settings.hpp"
 #include "asha_logging.h"
+#include "hearing_aid.hpp"
 
 namespace asha
 {
-
+    
 AudioBuffer audio_buff;
 async_context_t *bt_async_ctx = nullptr;
 async_when_pending_worker_t bt_audio_pending_worker = {};
@@ -33,6 +34,9 @@ etl::circular_buffer<etl::string<log_line_len>, log_lines> log_buffer = {};
 async_context_t *logging_ctx = nullptr;
 async_when_pending_worker_t logging_pending_worker = {};
 
+HearingAid ha_1 = {};
+HearingAid ha_2 = {};
+
 // extern "C" required by multicore_launch_core1
 extern "C" void bt_main();
 
@@ -48,6 +52,7 @@ extern "C" int main()
     // Init global shared variables
     patom::PseudoAtomicInit();
     audio_buff.init();
+
     // Get serial
     pico_get_unique_board_id_string(pico_uid, sizeof pico_uid);
 
